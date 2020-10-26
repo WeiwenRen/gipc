@@ -16,16 +16,21 @@ program.
 """
 
 
-import gevent
-import gipc
 import platform
 import signal
 
+import gevent
 
-print("Platform: %s" % (platform.platform(), ))
-print("gevent version: %s" % (gevent.__version__, ))
-print("Python version: %s %s" % (
-    platform.python_implementation(), platform.python_version(), )
+import gipc
+
+print("Platform: %s" % (platform.platform(),))
+print("gevent version: %s" % (gevent.__version__,))
+print(
+    "Python version: %s %s"
+    % (
+        platform.python_implementation(),
+        platform.python_version(),
+    )
 )
 
 
@@ -71,7 +76,7 @@ def main():
 
     def _writegreenlet(writer):
         while True:
-            writer.put('Msg sent from a greenlet running in the main process!')
+            writer.put("Msg sent from a greenlet running in the main process!")
             gevent.sleep(1)
 
     # Create gipc pipe and expose the read end as `r` and the write end as `w`.
@@ -79,7 +84,7 @@ def main():
 
         # Start child process for receiving messages. It inherits the standard
         # streams of this process and prints the received messages to stdout.
-        p = gipc.start_process(target=child_process, args=(r, ))
+        p = gipc.start_process(target=child_process, args=(r,))
 
         # Start greenlet (in the current, the parent, process). It periodically
         # sends a message to the child process through the pipe, via gipc's IPC.
@@ -95,12 +100,12 @@ def main():
         # exception.
         g.kill(block=True)
 
-        print('Write greenlet terminated. Send SIGTERM to child process')
+        print("Write greenlet terminated. Send SIGTERM to child process")
         p.terminate()
 
         # Wait for child process to terminate, reap it (read exit code).
         p.join()
-        print('Child process terminated. Exit code: %s' % (p.exitcode, ))
+        print("Child process terminated. Exit code: %s" % (p.exitcode,))
 
 
 def child_process(reader):

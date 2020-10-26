@@ -17,15 +17,15 @@ gipc (pronunciation as in “gipsy”)
 """
 
 
-import os
-import io
-import sys
-import struct
-import signal
 import codecs
+import io
 import logging
 import multiprocessing
 import multiprocessing.process
+import os
+import signal
+import struct
+import sys
 from itertools import chain
 
 try:
@@ -40,15 +40,13 @@ if WINDOWS:
     import msvcrt
 
 import gevent
-import gevent.os
-import gevent.lock
 import gevent.event
-
+import gevent.lock
+import gevent.os
 
 # Decide which method to use for transferring WinAPI pipe handles to children.
 if WINDOWS:
-    WINAPI_HANDLE_TRANSFER_STEAL = hasattr(
-        multiprocessing.reduction, "steal_handle")
+    WINAPI_HANDLE_TRANSFER_STEAL = hasattr(multiprocessing.reduction, "steal_handle")
 
 
 # Logging for debugging purposes. Usage of logging in this simple form in the
@@ -60,11 +58,13 @@ class GIPCError(Exception):
     """Is raised upon general errors. All other exception types derive from
     this one.
     """
+
     pass
 
 
 class GIPCClosed(GIPCError):
     """Is raised upon operation on closed handle."""
+
     pass
 
 
@@ -72,6 +72,7 @@ class GIPCLocked(GIPCError):
     """Is raised upon attempt to close a handle which is currently locked for
     I/O.
     """
+
     pass
 
 
@@ -108,7 +109,7 @@ def _noop_decoder(o):
     return o
 
 
-def pipe(duplex=False, encoder='default', decoder='default'):
+def pipe(duplex=False, encoder="default", decoder="default"):
     """Create a pipe-based message transport channel and return two
     corresponding handles for reading and writing data.
 
@@ -197,13 +198,13 @@ def pipe(duplex=False, encoder='default', decoder='default'):
     # special values `None` and `'default'` to callables here.
 
     if encoder is not None:
-        if encoder == 'default':
+        if encoder == "default":
             encoder = _default_encoder
         elif not callable(encoder):
             raise GIPCError("pipe 'encoder' argument must be callable.")
 
     if decoder is not None:
-        if decoder == 'default':
+        if decoder == "default":
             decoder = _default_decoder
         elif not callable(decoder):
             raise GIPCError("pipe 'decoder' argument must be callable.")
@@ -213,9 +214,12 @@ def pipe(duplex=False, encoder='default', decoder='default'):
         return _PairContext(pair1)
 
     pair2 = _newpipe(encoder, decoder)
-    return _PairContext((
-        _GIPCDuplexHandle((pair1[0], pair2[1])),
-        _GIPCDuplexHandle((pair2[0], pair1[1]))))
+    return _PairContext(
+        (
+            _GIPCDuplexHandle((pair1[0], pair2[1])),
+            _GIPCDuplexHandle((pair2[0], pair1[1])),
+        )
+    )
 
 
 def start_process(target, args=(), kwargs={}, daemon=None, name=None):
@@ -279,9 +283,9 @@ def start_process(target, args=(), kwargs={}, daemon=None, name=None):
         ignored.
     """
     if not isinstance(args, tuple):
-        raise TypeError('`args` must be a tuple.')
+        raise TypeError("`args` must be a tuple.")
     if not isinstance(kwargs, dict):
-        raise TypeError('`kwargs` must be a dictionary.')
+        raise TypeError("`kwargs` must be a dictionary.")
     log.debug("Invoke target `%s` in child process.", target)
     childhandles = list(_filter_handles(chain(args, kwargs.values())))
     if WINDOWS:
@@ -290,14 +294,14 @@ def start_process(target, args=(), kwargs={}, daemon=None, name=None):
     p = _GProcess(
         target=_child,
         name=name,
-        kwargs={"target": target,
-                "args": args,
-                "kwargs": kwargs})
+        kwargs={"target": target, "args": args, "kwargs": kwargs},
+    )
     if daemon is not None:
         p.daemon = daemon
     p.start()
     p.start = lambda *a, **b: sys.stderr.write(
-        "gipc WARNING: Redundant call to %s.start()\n" % p)
+        "gipc WARNING: Redundant call to %s.start()\n" % p
+    )
     # Close dispensable file handles in parent.
     for h in childhandles:
         log.debug("Invalidate %s in parent.", h)
@@ -346,7 +350,7 @@ def _child(target, args, kwargs):
         # `libev.gevent_ev_default_loop`.
         h = gevent.get_hub(default=True)
         log.debug("Created new hub and default event loop.")
-        assert h.loop.default, 'Could not create libev default event loop.'
+        assert h.loop.default, "Could not create libev default event loop."
         # On Unix, file descriptors are inherited by default. Also, the global
         # `_all_handles` is inherited from the parent. Close dispensable gipc-
         # related file descriptors in child.
@@ -407,7 +411,8 @@ def _cooperative_process_close_unix(self):
             # The error message is copied verbatim from stdlib (3.7).
             raise ValueError(
                 "Cannot close a process while it is still running. "
-                "You should first call join() or terminate().")
+                "You should first call join() or terminate()."
+            )
 
         self._popen.close()
         self._popen = None
@@ -438,6 +443,7 @@ class _GProcess(multiprocessing.Process):
         required for cleaning up after zombies (libev does). It just waits
         for the process to terminate.
     """
+
     # Remarks regarding child process monitoring on Unix:
     #
     # For each `_GProcess`, a libev child watcher is started in the modified
@@ -464,7 +470,7 @@ class _GProcess(multiprocessing.Process):
     # `is_alive()`, `join()`, `exitcode()` below call `self._checked_closed()`
     # for compatibility with CPython 3.7 and newer. For older Python versions
     # make this a noop.
-    if not hasattr(multiprocessing.Process, '_check_closed'):
+    if not hasattr(multiprocessing.Process, "_check_closed"):
         _check_closed = lambda *a, **b: None
 
     # On Windows, cooperative `join()` is realized via polling (non-blocking
@@ -491,7 +497,7 @@ class _GProcess(multiprocessing.Process):
 
         # CPython 3.7 introduced a non-cooperative close() method. Replace it.
         # This replacement is not required on Windows.
-        if hasattr(multiprocessing.Process, 'close'):
+        if hasattr(multiprocessing.Process, "close"):
             multiprocessing.Process.close = _cooperative_process_close_unix
 
         def start(self):
@@ -504,8 +510,7 @@ class _GProcess(multiprocessing.Process):
             # started after the child exits. Start child watcher now.
             self._sigchld_watcher = gevent.get_hub().loop.child(self.pid)
             self._returnevent = gevent.event.Event()
-            self._sigchld_watcher.start(
-                self._on_sigchld, self._sigchld_watcher)
+            self._sigchld_watcher.start(self._on_sigchld, self._sigchld_watcher)
             log.debug("SIGCHLD watcher for %s started.", self.pid)
 
         def _on_sigchld(self, watcher):
@@ -520,8 +525,11 @@ class _GProcess(multiprocessing.Process):
                 assert os.WIFEXITED(watcher.rstatus)
                 self._popen.returncode = os.WEXITSTATUS(watcher.rstatus)
             self._returnevent.set()
-            log.debug("SIGCHLD watcher callback for %s invoked. Exitcode "
-                      "stored: %s", self.pid, self._popen.returncode)
+            log.debug(
+                "SIGCHLD watcher callback for %s invoked. Exitcode " "stored: %s",
+                self.pid,
+                self._popen.returncode,
+            )
 
         def is_alive(self):
             self._check_closed()
@@ -556,21 +564,21 @@ class _GProcess(multiprocessing.Process):
               without changing output behavior (that's still 'started' status).
             """
             exitcodedict = multiprocessing.process._exitcode_to_name
-            status = 'started'
+            status = "started"
             if self._parent_pid != os.getpid():
-                status = 'unknown'
+                status = "unknown"
             elif self.exitcode is not None:
                 status = self.exitcode
             if status == 0:
-                status = 'stopped'
+                status = "stopped"
             elif isinstance(status, int):
-                status = 'stopped[%s]' % exitcodedict.get(status, status)
-            return '<%s(%s, %s%s)>' % (
+                status = "stopped[%s]" % exitcodedict.get(status, status)
+            return "<%s(%s, %s%s)>" % (
                 type(self).__name__,
                 self._name,
                 status,
-                self.daemon and ' daemon' or ''
-                )
+                self.daemon and " daemon" or "",
+            )
 
     def join(self, timeout=None):
         """
@@ -582,14 +590,14 @@ class _GProcess(multiprocessing.Process):
         """
         self._check_closed()
         assert self._parent_pid == os.getpid(), "I'm not parent of this child."
-        assert self._popen is not None, 'Can only join a started process.'
+        assert self._popen is not None, "Can only join a started process."
         if not WINDOWS:
             # Resemble multiprocessing's join() method while replacing
             # `self._popen.wait(timeout)` with
             # `self._returnevent.wait(timeout)`
             self._returnevent.wait(timeout)
             if self._popen.returncode is not None:
-                if hasattr(multiprocessing.process, '_children'):
+                if hasattr(multiprocessing.process, "_children"):
                     # This is for Python 3.4 and beyond.
                     kids = multiprocessing.process._children
                 else:
@@ -616,6 +624,7 @@ class _GIPCHandle(object):
         http://eli.thegreenplace.net/2009/06/12/
         safely-using-destructors-in-python/
     """
+
     def __init__(self):
         global _all_handles
         # Generate label of text/unicode type from three random bytes.
@@ -634,7 +643,7 @@ class _GIPCHandle(object):
         _all_handles.append(self)
 
     def _make_nonblocking(self):
-        if hasattr(gevent.os, 'make_nonblocking'):
+        if hasattr(gevent.os, "make_nonblocking"):
             # On POSIX-compliant systems, the file descriptor flags are
             # inherited after forking, i.e. it is sufficient to make fd
             # nonblocking only once.
@@ -652,8 +661,7 @@ class _GIPCHandle(object):
         global _all_handles
         self._validate()
         if not self._lock.acquire(blocking=False):
-            raise GIPCLocked(
-                "Can't close handle %s: locked for I/O operation." % self)
+            raise GIPCLocked("Can't close handle %s: locked for I/O operation." % self)
         log.debug("Invalidating %s ...", self)
         if self._fd is not None:
             os.close(self._fd)
@@ -678,12 +686,12 @@ class _GIPCHandle(object):
         performance impact.
         """
         if self._closed:
-            raise GIPCClosed(
-                "GIPCHandle has been closed before.")
+            raise GIPCClosed("GIPCHandle has been closed before.")
         if os.getpid() != self._legit_pid:
             raise GIPCError(
-                "GIPCHandle %s not registered for current process %s." % (
-                    self, os.getpid()))
+                "GIPCHandle %s not registered for current process %s."
+                % (self, os.getpid())
+            )
 
     def _winapi_childhandle_prepare_transfer(self):
         """Prepare file descriptor for transfer to child process on Windows.
@@ -771,7 +779,8 @@ class _GIPCHandle(object):
         # processes created by the current process.
 
         self._inheritable_winapihandle = multiprocessing.reduction.duplicate(
-            handle=winapihandle, inheritable=True)
+            handle=winapihandle, inheritable=True
+        )
 
         # Close "old" (in-inheritable) file descriptor.
         os.close(self._fd)
@@ -804,8 +813,7 @@ class _GIPCHandle(object):
             self._fd = None
             return
         # Get C file descriptor from Windows file handle.
-        self._fd = msvcrt.open_osfhandle(
-            self._inheritable_winapihandle, self._fd_flag)
+        self._fd = msvcrt.open_osfhandle(self._inheritable_winapihandle, self._fd_flag)
         del self._inheritable_winapihandle
 
     def _winapi_childhandle_after_createprocess_child(self):
@@ -817,7 +825,8 @@ class _GIPCHandle(object):
             # In this case the handle has not been inherited by the child
             # process during CreateProcess(). Steal it from the parent.
             new_winapihandle = multiprocessing.reduction.steal_handle(
-                self._parent_pid, self._parent_winapihandle)
+                self._parent_pid, self._parent_winapihandle
+            )
             del self._parent_winapihandle
             del self._parent_pid
             # Restore C file descriptor with (read/write)only flag.
@@ -827,8 +836,7 @@ class _GIPCHandle(object):
         # In this case the handle has been inherited by the child process during
         # the CreateProcess() system call. Get C file descriptor from Windows
         # file handle.
-        self._fd = msvcrt.open_osfhandle(
-            self._inheritable_winapihandle, self._fd_flag)
+        self._fd = msvcrt.open_osfhandle(self._inheritable_winapihandle, self._fd_flag)
 
         del self._inheritable_winapihandle
 
@@ -841,7 +849,7 @@ class _GIPCHandle(object):
         # on Windows, see https://github.com/jgehrcke/gipc/issues/36. Hence, do
         # not even try to pickle it to the child process.
         state = self.__dict__.copy()
-        del state['_lock']
+        del state["_lock"]
         return state
 
     def __setstate__(self, state):
@@ -863,9 +871,12 @@ class _GIPCHandle(object):
             pass
         except GIPCLocked:
             # Locked for I/O outside of context, which is not fine.
-            raise GIPCLocked((
-                "Context manager can't close handle %s. It's locked for I/O "
-                "operation out of context." % self))
+            raise GIPCLocked(
+                (
+                    "Context manager can't close handle %s. It's locked for I/O "
+                    "operation out of context." % self
+                )
+            )
 
     def __str__(self):
         return self.__repr__()
@@ -882,6 +893,7 @@ class _GIPCReader(_GIPCHandle):
     A ``_GIPCReader`` instance manages the read end of a pipe. It is created
     via :func:`pipe`.
     """
+
     def __init__(self, pipe_read_fd, decoder):
         self._fd = pipe_read_fd
         self._fd_flag = os.O_RDONLY
@@ -915,8 +927,7 @@ class _GIPCReader(_GIPCHandle):
             received = len(chunk)
             if received == 0:
                 if remaining == n:
-                    raise EOFError(
-                        "Most likely, the other pipe end is closed.")
+                    raise EOFError("Most likely, the other pipe end is closed.")
                 else:
                     raise IOError("Message interrupted by EOF.")
             readbuf.write(chunk)
@@ -961,7 +972,7 @@ class _GIPCReader(_GIPCHandle):
                 h = gevent.get_hub()
                 h.wait(h.loop.io(self._fd, 1))
                 timeout.cancel()
-            msize, = struct.unpack("!i", self._recv_in_buffer(4).getvalue())
+            (msize,) = struct.unpack("!i", self._recv_in_buffer(4).getvalue())
             bindata = self._recv_in_buffer(msize).getvalue()
         return self._decoder(bindata)
 
@@ -971,6 +982,7 @@ class _GIPCWriter(_GIPCHandle):
     A ``_GIPCWriter`` instance manages the write end of a pipe. It is created
     via :func:`pipe`.
     """
+
     def __init__(self, pipe_write_fd, encoder):
         self._fd = pipe_write_fd
         self._fd_flag = os.O_WRONLY
@@ -1046,6 +1058,7 @@ class _PairContext(tuple):
     context enter and exit themselves. Returns 2-tuple upon entering the
     context, attempts to exit both tuple elements upon context exit.
     """
+
     def __enter__(self):
         for e in self:
             e.__enter__()
@@ -1082,6 +1095,7 @@ class _GIPCDuplexHandle(_PairContext):
     methods which are forwarded to the corresponding methods of
     :class:`gipc._GIPCWriter` and :class:`gipc._GIPCReader`.
     """
+
     def __init__(self, rwpair):
         self._reader, self._writer = rwpair
         self.put = self._writer.put
@@ -1104,12 +1118,11 @@ class _GIPCDuplexHandle(_PairContext):
         return self.__repr__()
 
     def __repr__(self):
-        return "<%s(%r, %s)>" % (
-            self.__class__.__name__, self._reader, self._writer)
+        return "<%s(%r, %s)>" % (self.__class__.__name__, self._reader, self._writer)
 
 
 # Define non-blocking read and write functions
-if hasattr(gevent.os, 'nb_write'):
+if hasattr(gevent.os, "nb_write"):
     # POSIX system -> use actual non-blocking I/O
     _read_nonblocking = gevent.os.nb_read
     _write_nonblocking = gevent.os.nb_write
@@ -1120,8 +1133,7 @@ else:
 
 
 def _filter_handles(l):
-    """Iterate through `l`, filter and yield `_GIPCHandle` instances.
-    """
+    """Iterate through `l`, filter and yield `_GIPCHandle` instances."""
     for o in l:
         if isinstance(o, _GIPCHandle):
             yield o
@@ -1135,8 +1147,7 @@ _all_handles = []
 
 
 def _get_all_handles():
-    """Return a copy of the list of all handles.
-    """
+    """Return a copy of the list of all handles."""
     return _all_handles[:]
 
 
@@ -1148,12 +1159,13 @@ def _set_all_handles(handles):
 # Inspect signal module for signals whose action is to be restored to the
 # default action right after fork.
 _signals_to_reset = [
-    getattr(signal, s) for s in
-    set([s for s in dir(signal) if s.startswith("SIG")])
+    getattr(signal, s)
+    for s in set([s for s in dir(signal) if s.startswith("SIG")])
     # Exclude constants that are not signals such as SIG_DFL and SIG_BLOCK.
     - set([s for s in dir(signal) if s.startswith("SIG_")])
     # Leave handlers for SIG(STOP/KILL/PIPE) untouched.
-    - set(['SIGSTOP', 'SIGKILL', 'SIGPIPE'])]
+    - set(["SIGSTOP", "SIGKILL", "SIGPIPE"])
+]
 
 
 def _reset_signal_handlers():
@@ -1173,13 +1185,17 @@ PY3 = sys.version_info[0] == 3
 # The core issue here is that Python 2's raise syntax (with three arguments)
 # is a syntax error in Python 3, which is why a workaround requires exec.
 if PY3:
+
     def _reraise(tp, value, tb=None):
         if value is None:
             value = tp()
         if value.__traceback__ is not tb:
             raise value.with_traceback(tb)
         raise value
+
+
 else:
+
     def __exec(_code_, _globs_=None, _locs_=None):
         """Execute code in a namespace."""
         if _globs_ is None:
@@ -1192,5 +1208,7 @@ else:
             _locs_ = _globs_
         exec("""exec _code_ in _globs_, _locs_""")
 
-    __exec("""def _reraise(tp, value, tb=None):
-    raise tp, value, tb""")
+    __exec(
+        """def _reraise(tp, value, tb=None):
+    raise tp, value, tb"""
+    )

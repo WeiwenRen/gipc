@@ -30,6 +30,7 @@ Output on my test system: 100 clients were served within 0.43 s.
 
 import os
 import time
+
 try:
     import urllib.request as request
 except ImportError:
@@ -40,13 +41,11 @@ from gevent.pywsgi import WSGIServer
 
 import gipc
 
-
 DUMMY_PAYLOAD = b"YO"
 N_HTTP_CLIENTS = 100
 
 
 def main():
-
     def servelet(http_server):
         """I am executed in a greenlet.
 
@@ -69,7 +68,7 @@ def main():
         """I am executed in a greenlet whenever an HTTP request came in."""
 
         # Start constructing an HTTP response. Build the header first.
-        start_response('200 OK', [('Content-Type', 'text/html')])
+        start_response("200 OK", [("Content-Type", "text/html")])
 
         # What would we like to respond to the client? Let's ask a worker
         # process to generate the HTTP response body for us. (When would we do
@@ -81,7 +80,7 @@ def main():
             # Start the child process (each client connection makes the server
             # process spawn a child process!). Pass the write end of the pipe to
             # the child process.
-            p = gipc.start_process(target=child_msg_generator, args=(w, ))
+            p = gipc.start_process(target=child_msg_generator, args=(w,))
             # Read the message from the child process.
             body = r.get()
             # Reap child (call wait(), remove it from process table).
@@ -90,7 +89,7 @@ def main():
         # Write HTTP response body.
         return [body]
 
-    server = WSGIServer(('127.0.0.1', 0), handle_http_request, log=None)
+    server = WSGIServer(("127.0.0.1", 0), handle_http_request, log=None)
     servelet = gevent.spawn(servelet, server)
 
     # Wait for server to be bound to socket.
@@ -103,7 +102,7 @@ def main():
     # concurrently (where each HTTP client runs in its own greenlet, and opens
     # its own TCP connection to the HTTP server). Pass the server address to the
     # child process so that they know where to TCP-connect to.
-    p = gipc.start_process(target=child_client_runner, args=(server.address, ))
+    p = gipc.start_process(target=child_client_runner, args=(server.address,))
 
     # Wait until the child process is done doing all its work. It terminates
     # only after all the HTTP clients it spawned concurrently have received HTTP
@@ -128,7 +127,7 @@ def child_client_runner(server_address):
     """
 
     def get():
-        body = request.urlopen('http://%s:%s/' % server_address).read()
+        body = request.urlopen("http://%s:%s/" % server_address).read()
         assert body == DUMMY_PAYLOAD
 
     t0 = time.time()
@@ -137,7 +136,7 @@ def child_client_runner(server_address):
     # Wait until all `get()` greenlet instances have completed.
     gevent.joinall(clients)
     duration = time.time() - t0
-    print('%s HTTP clients served within %.2f s.' % (N_HTTP_CLIENTS, duration))
+    print("%s HTTP clients served within %.2f s." % (N_HTTP_CLIENTS, duration))
 
 
 if __name__ == "__main__":

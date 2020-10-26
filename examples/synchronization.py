@@ -2,10 +2,11 @@
 # Copyright 2012-2020 Dr. Jan-Philip Gehrcke. See LICENSE file for details.
 
 
-import gevent
-import gipc
 import time
 
+import gevent
+
+import gipc
 
 timer = time.time
 # We are about to measure a really small time difference. On Windows, when using
@@ -15,7 +16,7 @@ timer = time.time
 # measure a time difference across two processes. `perf_counter` is new since
 # Python 3.3 and should do the job for all platforms. It is documented with "It
 # does include time elapsed during sleep and is system-wide".
-if hasattr(time, 'perf_counter'):
+if hasattr(time, "perf_counter"):
     timer = time.perf_counter
 
 
@@ -43,4 +44,3 @@ def writer_process(cend):
 
 if __name__ == "__main__":
     main()
-

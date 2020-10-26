@@ -20,69 +20,69 @@ $ python raw_largemsg_bench.py
 """
 
 import hashlib
+import logging
 import os
+import platform
 import sys
 import time
-import logging
-import platform
 
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath(".."))
 import gipc
 
 log = logging.getLogger()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s.%(msecs)03d %(levelname)s: %(message)s",
-    datefmt="%y%m%d-%H:%M:%S"
-    )
+    datefmt="%y%m%d-%H:%M:%S",
+)
 
 
 WINDOWS = False
-if sys.platform == 'win32':
+if sys.platform == "win32":
     WINDOWS = True
 
 
 timer = time.time
-if hasattr(time, 'perf_counter'):
+if hasattr(time, "perf_counter"):
     timer = time.perf_counter
 
 
 def main():
 
-    log.info('Creating data ...')
+    log.info("Creating data ...")
 
-    N = 10**7
+    N = 10 ** 7
     n = 80
 
-    if platform.python_implementation() == 'PyPy':
+    if platform.python_implementation() == "PyPy":
         # This example seems to suffer from a severe performance problem on
         # PyPy. On my machine I got 890 MBytes/s on CPython 3.6.3 / gevent
         # 1.3.6, whereas with PyPy35-6.0.0 (everything else constant) I saw 3
         # MB/s. Adopt to this so that this executes within reasonable time
         # during CI.
-        N = 10**6
+        N = 10 ** 6
         n = 20
 
-    if platform.python_implementation() == 'CPython' and WINDOWS:
+    if platform.python_implementation() == "CPython" and WINDOWS:
         # Temporarily work around the inability to send large messages on
         # Windows. Fixing that is tracked here:
         # https://github.com/jgehrcke/gipc/issues/69
-        N = 10**6
+        N = 10 ** 6
         n = 20
 
     # Concatenate a smaller chunk of random data multiple times (that's faster
     # than creating a big chunk of random data).
     data = os.urandom(N) * n
     mbytes = len(data) / 1024.0 / 1024
-    log.info('Data size: %s MBytes' % mbytes)
+    log.info("Data size: %s MBytes" % mbytes)
     checksum = hashlib.md5(data).digest()
 
     with gipc.pipe(duplex=True) as (c, p):
-        log.info('Test with default pipe...')
+        log.info("Test with default pipe...")
         spawn_child_transfer(c, p, data, checksum)
 
     with gipc.pipe(duplex=True, encoder=None, decoder=None) as (c, p):
-        log.info('Test with raw pipe...')
+        log.info("Test with raw pipe...")
         spawn_child_transfer(c, p, data, checksum)
 
 
@@ -90,32 +90,32 @@ def spawn_child_transfer(childhandler, parenthandler, data, checksum):
 
     p = gipc.start_process(target=child, args=(childhandler, checksum))
 
-    assert parenthandler.get() == b'start'
-    log.info('Sending data')
+    assert parenthandler.get() == b"start"
+    log.info("Sending data")
     t0 = timer()
 
     parenthandler.put(data)
-    assert parenthandler.get() == b'done'
+    assert parenthandler.get() == b"done"
     delta = timer() - t0
 
-    log.info('Child confirmed that it received data, checksum matches')
+    log.info("Child confirmed that it received data, checksum matches")
     p.join()
     assert p.exitcode == 0
 
-    log.info('Duration: %.3f s' % delta)
+    log.info("Duration: %.3f s" % delta)
     mbytes = len(data) / 1024.0 / 1024
 
     if delta < 10 ** -7:
-        log.info('Clock resolution too small to calculate meaningful rate')
+        log.info("Clock resolution too small to calculate meaningful rate")
     else:
         rate = mbytes / delta
-        log.info('Rate: %.2f MBytes/s' % rate)
+        log.info("Rate: %.2f MBytes/s" % rate)
 
 
 def child(childhandler, reference_checksum):
-    childhandler.put(b'start')
+    childhandler.put(b"start")
     data = childhandler.get()
-    childhandler.put(b'done')
+    childhandler.put(b"done")
     checksum = hashlib.md5(data).digest()
     assert checksum == reference_checksum
 
